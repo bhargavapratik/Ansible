@@ -1,0 +1,139 @@
+---
+
+# roles/vpc/tasks/main.yml
+
+
+# First task : creating the VPC.
+
+- name:               Create VPC
+  ec2_vpc_net:
+    name:             "{{ vpc_name }}"
+    cidr_block:       "{{ vpc_cidr_block }}"
+    region:           "{{ aws_region }}"
+    state:            "present"
+  register: my_vpc
+
+- name:               Set VPC ID in variable
+  set_fact:
+    vpc_id:           "{{ my_vpc.vpc.id }}"
+
+- name: debug VPC id
+  debug:
+    msg: "{{ vpc_id }}"
+
+# Now let's create the subnets.
+# Two public, one private.
+# Both Public subnets are located in the different AZ.
+
+- name:               Create Public Subneit [AZ-1]
+  ec2_vpc_subnet:
+    state:            "present"
+    vpc_id:           "{{ vpc_id }}"
+    cidr:             "{{ public_subnet_1_cidr }}"
+    az:               "{{ aws_region }}a"
+    region:           "{{ aws_region }}"
+    resource_tags:
+      Name:           "Public Subnet 1"
+  register: my_public_subnet_az1
+
+- name:               Set Public Subnet ID in variable [AZ-1]
+  set_fact:
+    public_subnet_az1_id: "{{ my_public_subnet_az1.subnet.id }}"
+
+- name:               Create Public Subnet [AZ-2]
+  ec2_vpc_subnet:
+    state:            "present"
+    vpc_id:           "{{ vpc_id }}"
+    cidr:             "{{ public_subnet_2_cidr }}"
+    az:               "{{ aws_region }}b"
+    region:           "{{ aws_region }}"
+    resource_tags:
+      Name:           "Public Subnet 2"
+  register: my_public_subnet_az2
+
+- name:               Set Public Subnet ID in variable [AZ-2]
+  set_fact:
+    public_subnet_az2_id: "{{ my_public_subnet_az2.subnet.id }}"
+
+- name:               Create Private Subnet
+  ec2_vpc_subnet:
+    state:            "present"
+    vpc_id:           "{{ vpc_id }}"
+    cidr:             "{{ private_subnet_1_cidr }}"
+    az:               "{{ aws_region }}a"
+    region:           "{{ aws_region }}"
+    resource_tags:
+      Name:           "Private Subnet"
+  register: my_private_subnet
+
+- name:               Set Private Subnet ID in variable
+  set_fact:
+    private_subnet_id: "{{ my_private_subnet.subnet.id }}"
+
+
+# VPC needs one Internet Gateway.
+
+- name:               Create Internet Gateway for VPC
+  ec2_vpc_igw:
+    vpc_id:           "{{ vpc_id }}"
+    region:           "{{ aws_region }}"
+    state:            "present"
+  register: my_vpc_igw
+
+- name:               Set Internet Gateway ID in variable
+  set_fact:
+    igw_id:           "{{ my_vpc_igw.gateway_id }}"
+
+
+# Now we set up the Route Tables.
+# We will have one RT for the public subnets,
+# and one for the private subnet.
+# Route Table for the public subnet will use the
+# Internet Gateway.
+
+- name: Set up public subnet route table
+  ec2_vpc_route_table:
+    vpc_id: "{{ vpc_id }}"
+    region: "{{ aws_region }}"
+    tags:
+      Name: "Public"
+    subnets:
+      - "{{ public_subnet_az1_id }}"
+      - "{{ public_subnet_az2_id }}"
+    routes:
+      - dest: "0.0.0.0/0"
+        gateway_id: "{{ igw_id }}"
+
+- name: Set up private subnet route table
+  ec2_vpc_route_table:
+    vpc_id: "{{ vpc_id }}"
+    region: "{{ aws_region }}"
+    tags:
+      Name: "Private"
+    subnets:
+      - "{{ private_subnet_id }}"
+
+
+# Finally, let's create the Security Groups.
+# We will create single SG: to attach to public instances,
+# and private instances.
+
+- name: Create Main Security Group
+  ec2_group:
+    name: "External Access"
+    description: "External Access"
+    vpc_id: "{{ vpc_id }}"
+    region: "{{ aws_region }}"
+    rules:
+      - proto: "tcp"
+        from_port: "22"
+        to_port: "22"
+        cidr_ip: "{{ my_ip }}/0"
+    tags:
+      Name: "My Test SG"
+  register: my_main_sg
+
+- name: Set Main SG ID
+  set_fact:
+    main_sg_id: "{{ my_main_sg.group_id }}"
+

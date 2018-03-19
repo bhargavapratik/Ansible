@@ -1,0 +1,38 @@
+---
+
+# AWS Credentials
+aws_secret_key: xxxxxx
+aws_access_key: xxxxxx
+aws_region:     "eu-west-1"
+
+# VPC Information
+vpc_name:       "My Test VPC"
+vpc_cidr_block: "10.0.0.0/16"
+
+# For Security Group Rule
+my_ip:          "0.0.0.0"
+
+# Subnets
+public_subnet_1_cidr:  "10.0.0.0/24"
+public_subnet_2_cidr:  "10.0.10.0/24"
+private_subnet_1_cidr: "10.0.1.0/24"
+
+
+# EC2 
+instance_type: t2.small
+ami: ami-c90195b0  # Red Hat 7.4 
+keypair: dev-eu-west1 # pem file name
+
+#Route 53
+zone_name: test.io
+record_name: web.test.io
+
+#ALB
+ssl_arn: arn:aws:iam::xxxxxxxx:server-certificate/dev-entrust
+
+# S#
+bucket_name: test-bucket-virginia-44
+image_name: webapp.tar.gz
+
+
+hostpath: "inventory/hosts"
