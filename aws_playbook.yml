@@ -1,0 +1,32 @@
+---
+- name: Create VPC
+  hosts: localhost
+  connection: local
+  roles:
+#    - sslCert
+    - vpc
+
+- name: Create EC2
+  hosts: localhost
+  roles:    
+    - webserver
+
+- name: Install HTTPD, Docker, Grafana and Graphite
+  hosts: launched
+  remote_user: ec2-user
+  become: true
+  become_method: sudo
+  gather_facts: True
+  roles:    
+    - web
+
+- name: Create ALB
+  hosts: localhost
+  connection: local
+  roles:    
+    - alb
+- name: Create DNS
+  hosts: localhost
+  connection: local
+  roles:    
+    - dns

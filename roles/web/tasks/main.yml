@@ -1,0 +1,99 @@
+
+- name: Update all the packages to the latest
+  yum:
+    name: "*"
+    state: latest
+
+
+- name: Install the httpd rpm
+  yum:
+    name: httpd
+    state: latest
+
+- name: start the httpd service
+  service: name=httpd state=started
+
+- name: Disable SeLinux
+  selinux:
+    state: disabled
+
+- name: Wait for the instances to boot by checking the ssh port
+  hosts: localhost
+  wait_for: 
+    host: "{{item.public_dns_name}}" 
+    port: 22 
+    delay: 60 
+    timeout: 320 
+    state: started
+  with_items: "{{ hostvars['localhost']['ec2']['tagged_instances'] }}"
+
+- name: Install needed packages for docker
+  yum:
+    name: yum-utils
+    state: latest
+
+- name: add repository for Docker (RHEL7)
+  command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+- name: enable repository for Docker (RHEL7)
+  command: yum-config-manager --enable rhel-7-server-extras-rpms
+
+- name: enable repository for Docker (RHEL7)
+  command: yum-config-manager --enable rhui-REGION-rhel-server-extras
+
+- name: Install the Docker
+  yum:
+    name: docker-ce
+    state: latest
+
+- name: start the docker  service
+  service: name=docker state=started enabled=yes
+
+- name: Install the wget
+  yum:
+    name: wget
+    state: latest
+
+- name: Download Docker Image from S3
+#  s3:
+#    bucket: "{{ bucket_name }}"
+#    object: "{{ image_name}}"
+#    dest: /home/ec-user/
+#    mode: get
+  command: wget https://s3.amazonaws.com/test-44-docker/{{ image_name }} -P /home/ec2-user/
+
+- name: Load downloaded docker image into docker
+  command: docker load -i /home/ec2-user/"{{ image_name}}"
+  ignore_errors: yes
+
+- name: Docker run
+  command: docker run -d -p 8000:5000 training/webapp:latest python app.py
+  ignore_errors: yes
+
+- name: Copy the redirect conf file to the httpd/conf.d
+  copy:
+    src:  /home/ec2-user/Ansible/roles/web/templates/mysite.conf.j2
+    dest: /etc/httpd/conf.d/mysite.conf
+
+- name: restart the httpd service
+  service: name=httpd state=restarted
+
+- name: Install Gafana
+  yum: name="https://s3-us-west-2.amazonaws.com/grafana-releases/release/grafana-5.0.3-1.x86_64.rpm"
+
+- name: Add EPEL Repo
+  yum: name="http://epel.mirror.constant.com/7/x86_64/Packages/e/epel-release-7-11.noarch.rpm"
+
+- name: Install Graphite web
+  yum:
+    name: graphite-web
+    state: latest
+
+- name: Copy the monitoring_script to the /home/ec2-user
+  copy:
+    src:  /home/ec2-user/Ansible/roles/web/templates/monitoring_script.sh.j2
+    dest: /home/ec2-user/monitoring_script.sh
+    mode: 0777
+
+#- name: Execute monitoring script in remote shell; stdout goes to the specified file on the remote.
+#  command: sh /home/ec2-user/monitoring_script.sh >> /home/ec2-user/monitoring.log

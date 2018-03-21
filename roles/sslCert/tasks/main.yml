@@ -1,0 +1,16 @@
+- name: Generate RSA Key
+  openssl_privatekey:
+    path:  ssl/key.pem
+
+- name: Generate CSR
+  openssl_csr:
+    path: ssl/test.csr
+    privatekey_path: ssl/key.pem
+    common_name: test.com
+
+- name: Generate Self-signed Certificate
+  openssl_certificate:
+    path: ssl/test.crt
+    privatekey_path: ssl/key.pem
+    csr_path: ssl/test.csr
+    provider: selfsigned

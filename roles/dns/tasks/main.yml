@@ -1,0 +1,33 @@
+# roles/dns/tasks/main.yml
+
+
+# Fourth task : creating the Domain.
+
+- name: Create Hosted Zone on Route53
+  route53_zone:
+    zone: "{{ zone_name }}"
+    state: present
+    comment: this is test zone
+  register: my_dns
+
+- name: debug  DNS
+  debug:
+    msg: "{{ my_dns.result }}"
+
+- name: Craete Record Set and Add ALB to DNS
+  route53:
+    command: create
+    zone: "{{ my_dns.result.name }}"
+    record: "{{ record_name }}"
+    type: A
+    value: "{{ my_alb.dns_name }}"
+    alias: True
+    alias_hosted_zone_id: "{{ my_alb.canonical_hosted_zone_id }}"
+    alias_evaluate_target_health: True
+    overwrite: true
+  register: my_zone
+
+- name: debug Zone
+  debug:
+    msg: "{{ my_zone }}"
+
